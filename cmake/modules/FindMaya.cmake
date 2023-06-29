@@ -51,7 +51,8 @@ endif()
 set(MAYA_INSTALL_BASE_PATH ${MAYA_INSTALL_BASE_DEFAULT} CACHE STRING
     "Root path containing your maya installations, e.g. /usr/autodesk or /Applications/Autodesk/")
 
-set(MAYA_LOCATION ${MAYA_INSTALL_BASE_PATH}/maya${MAYA_VERSION}${MAYA_INSTALL_BASE_SUFFIX})
+set(MAYA_LOCATION ${MAYA_INSTALL_BASE_PATH}/maya${MAYA_VERSION}${MAYA_INSTALL_BASE_SUFFIX} CACHE STRING
+    "Path containing the maya installation, e.g. /usr/autodesk/maya2023")
 
 # Maya library directory
 find_path(MAYA_LIBRARY_DIR ${OPENMAYA}

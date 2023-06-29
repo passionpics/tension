@@ -6,3 +6,5 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
 add_subdirectory(plug-ins/src)
 
+install(DIRECTORY scripts DESTINATION tension)
+install(FILES res/tension.mod DESTINATION .)
