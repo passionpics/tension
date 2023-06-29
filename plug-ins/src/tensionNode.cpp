@@ -1,5 +1,6 @@
 #include "tensionNode.h"
 #include <maya/MGlobal.h>
+#include <maya/MFnStringData.h>
 
 const MString origAttrName( "origShape" );
 const MString deformedAttrName( "deformedShape" );
@@ -9,6 +10,7 @@ MObject tensionNode::aOrigShape;
 MObject tensionNode::aDeformedShape;
 MObject tensionNode::aOutShape;
 MObject tensionNode::aColorRamp;
+MObject tensionNode::aColorSetName;
 
 MStatus initialize_ramp( MObject parentNode, MObject rampObj, int index, float position, MColor value, int interpolation )
 // initialize color ramp values
@@ -51,6 +53,14 @@ MStatus tensionNode::initialize()
     aDeformedShape = tAttr.create( deformedAttrName, deformedAttrName, MFnMeshData::kMesh );
     tAttr.setStorable( true );
 
+    aColorSetName = tAttr.create( "colorSetName", "colorSetName", MFnData::kString );
+    MString defaultString("tension");
+    MFnStringData defaultTextData;
+    MObject defaultTextAttr = defaultTextData.create(defaultString);
+    tAttr.setWritable( true );
+    tAttr.setStorable( true );
+    tAttr.setDefault( defaultTextAttr );
+
     aOutShape = tAttr.create( "out", "out", MFnMeshData::kMesh );
     tAttr.setWritable( false );
     tAttr.setStorable( false );
@@ -61,10 +71,12 @@ MStatus tensionNode::initialize()
     addAttribute( aDeformedShape );
     addAttribute( aOutShape );
     addAttribute( aColorRamp );
+    addAttribute( aColorSetName );
 
     attributeAffects( aOrigShape, aOutShape );
     attributeAffects( aDeformedShape, aOutShape );
     attributeAffects( aColorRamp, aOutShape );
+    attributeAffects( aColorSetName, aOutShape );
 
     return MStatus::kSuccess;
 }
@@ -97,6 +109,7 @@ MStatus tensionNode::compute( const MPlug& plug, MDataBlock& data )
             deformedEdgeLenArray = getEdgeLen( deformedHandle );
             outHandle.set( deformedHandle.asMesh() );
             isDeformedDirty = false;
+            isColorSetDirty = true;
         }
 
         MObject outMesh = outHandle.asMesh();
@@ -105,36 +118,48 @@ MStatus tensionNode::compute( const MPlug& plug, MDataBlock& data )
         int numVerts = meshFn.numVertices( &status );
         MCheckStatus( status, "ERR: getting vert count" );
 
-        MColorArray vertColors;
-        MIntArray vertIds;
+        if ( isColorSetDirty == true )
+        {
+            colorSetName = data.inputValue( aColorSetName, &status ).asString();
+            MCheckStatus( status, "ERR: getting colorSetName attribute" );
 
-        MCheckStatus( vertColors.setLength( numVerts ), "ERR: setting array length" );
+            status = meshFn.createColorSetDataMesh(colorSetName);
+            MCheckStatus( status, "ERR: creating colorSet" );
+            isColorSetDirty = false;
+        }
+
+        MColorArray vertColors;
+        MIntArray vertexCount, vertexList;
+
 
         if (numVerts == origEdgeLenArray.length() && numVerts == deformedEdgeLenArray.length())
         {
+            meshFn.getVertices(vertexCount, vertexList);
+            MCheckStatus( vertColors.setLength( numVerts ), "ERR: setting array length" );
             double delta;
             MColor vertColor;
             for ( int i = 0; i < numVerts; ++i)
             {
                 delta = ( ( origEdgeLenArray[i] - deformedEdgeLenArray[i] ) / origEdgeLenArray[i] ) + 0.5;
+
                 colorAttribute.getColorAtPosition(delta, vertColor, &status);
                 MCheckStatus( status, "ERR: getting color ramp attribute" );
                 vertColors.set( vertColor, i );
-                vertIds.set( i, i );
             }
         }
         else
         {
+            MCheckStatus( vertColors.setLength( 1 ), "ERR: setting array length" );
             MColor vertColor;
+            vertexList = MIntArray(meshFn.numFaceVertices(), 0);
             colorAttribute.getColorAtPosition(0.5f, vertColor, &status);
             MCheckStatus( status, "ERR: getting color ramp attribute" );
-            for ( int i = 0; i < numVerts; ++i)
-            {
-                vertColors.set( vertColor, i );
-                vertIds.set( i, i );
-            }
+            vertColors.set( vertColor, 0 );
         }
-        MCheckStatus( meshFn.setVertexColors( vertColors, vertIds ), "ERR: setting vertex colors" );
+
+        meshFn.clearColors( &colorSetName );
+        meshFn.setColors( vertColors, &colorSetName );
+        meshFn.assignColors( vertexList, &colorSetName );
     }
     data.setClean( plug );
     return MStatus::kSuccess;
@@ -173,6 +198,10 @@ MDoubleArray tensionNode::getEdgeLen( const MDataHandle& meshHandle )
 MStatus tensionNode::setDependentsDirty( const MPlug &dirtyPlug, MPlugArray &affectedPlugs )
 // set isOrigDirty and/or isDeformedDirty
 {
+    if (dirtyPlug == aColorSetName )
+    {
+        isColorSetDirty = true;
+    }
     if (dirtyPlug == aDeformedShape )
     {
         isDeformedDirty = true;

@@ -43,6 +43,8 @@ public:
 private:
     bool isOrigDirty = true;
     bool isDeformedDirty = true;
+    bool isColorSetDirty = true;
+    MString colorSetName = "tension";
     MDoubleArray origEdgeLenArray;
     MDoubleArray deformedEdgeLenArray;
 
