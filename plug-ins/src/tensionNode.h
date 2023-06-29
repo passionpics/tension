@@ -6,6 +6,7 @@
 #include <maya/MFnDependencyNode.h>
 #include <maya/MFnNumericAttribute.h>
 #include <maya/MFnTypedAttribute.h>
+#include <maya/MDoubleArray.h>
 #include <maya/MRampAttribute.h>
 #include <maya/MFnMeshData.h>
 #include <maya/MPlugArray.h>
@@ -32,17 +33,18 @@ public:
     static MStatus initialize();
     static MDoubleArray getEdgeLen( const MDataHandle& inMesh );
 
-public:
     static MTypeId id;
     static MObject aOrigShape;
     static MObject aDeformedShape;
     static MObject aOutShape;
     static MObject aColorRamp;
+    static MObject aColorSetName;
 
-    static bool isOrigDirty;
-    static bool isDeformedDirty;
-    static MDoubleArray origEdgeLenArray;
-    static MDoubleArray deformedEdgeLenArray;
+private:
+    bool isOrigDirty = true;
+    bool isDeformedDirty = true;
+    MDoubleArray origEdgeLenArray;
+    MDoubleArray deformedEdgeLenArray;
 
 };
 

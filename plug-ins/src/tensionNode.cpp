@@ -10,12 +10,6 @@ MObject tensionNode::aDeformedShape;
 MObject tensionNode::aOutShape;
 MObject tensionNode::aColorRamp;
 
-bool tensionNode::isOrigDirty;
-bool tensionNode::isDeformedDirty;
-MDoubleArray tensionNode::origEdgeLenArray;
-MDoubleArray tensionNode::deformedEdgeLenArray;
-
-
 MStatus initialize_ramp( MObject parentNode, MObject rampObj, int index, float position, MColor value, int interpolation )
 // initialize color ramp values
 {
@@ -82,26 +76,28 @@ MStatus tensionNode::compute( const MPlug& plug, MDataBlock& data )
     if ( plug == aOutShape )
     {
         MObject thisObj = thisMObject();
-        MDataHandle origHandle = data.inputValue( aOrigShape, &status );
-        MCheckStatus( status, "ERR: getting data handle" );
-        MDataHandle deformedHandle = data.inputValue( aDeformedShape, &status );
-        MCheckStatus( status, "ERR: getting data handle" );
+
         MDataHandle outHandle = data.outputValue( aOutShape, &status );
-        MCheckStatus( status, "ERR: getting data handle" );
+        MCheckStatus( status, "ERR: getting out dataHandle" );
+
         MRampAttribute colorAttribute( thisObj, aColorRamp, &status );
-        MCheckStatus( status, "ERR: getting color attribute" );
+        MCheckStatus( status, "ERR: getting colorRamp attribute" );
 
         if ( isOrigDirty == true )
         {
+            MDataHandle origHandle = data.inputValue( aOrigShape, &status );
+            MCheckStatus( status, "ERR: getting origShape dataHandle" );
             origEdgeLenArray = getEdgeLen( origHandle );
+            isOrigDirty = false;
         }
         if ( isDeformedDirty == true )
         {
+            MDataHandle deformedHandle = data.inputValue( aDeformedShape, &status );
+            MCheckStatus( status, "ERR: getting deformedShape dataHandle" );
             deformedEdgeLenArray = getEdgeLen( deformedHandle );
+            outHandle.set( deformedHandle.asMesh() );
+            isDeformedDirty = false;
         }
-
-        outHandle.copy( deformedHandle );
-        outHandle.set( deformedHandle.asMesh() );
 
         MObject outMesh = outHandle.asMesh();
         MFnMesh meshFn( outMesh, &status );
@@ -113,24 +109,30 @@ MStatus tensionNode::compute( const MPlug& plug, MDataBlock& data )
         MIntArray vertIds;
 
         MCheckStatus( vertColors.setLength( numVerts ), "ERR: setting array length" );
-        MCheckStatus( vertIds.setLength( numVerts ), "ERR: setting array length" );
 
-        for ( int i = 0; i < numVerts; ++i)
+        if (numVerts == origEdgeLenArray.length() && numVerts == deformedEdgeLenArray.length())
         {
             double delta;
             MColor vertColor;
-            if ( origEdgeLenArray.length() == deformedEdgeLenArray.length() )
+            for ( int i = 0; i < numVerts; ++i)
             {
                 delta = ( ( origEdgeLenArray[i] - deformedEdgeLenArray[i] ) / origEdgeLenArray[i] ) + 0.5;
+                colorAttribute.getColorAtPosition(delta, vertColor, &status);
+                MCheckStatus( status, "ERR: getting color ramp attribute" );
+                vertColors.set( vertColor, i );
+                vertIds.set( i, i );
             }
-            else
-            {
-                delta = 0.5;
-            }
-            colorAttribute.getColorAtPosition(delta, vertColor, &status);
+        }
+        else
+        {
+            MColor vertColor;
+            colorAttribute.getColorAtPosition(0.5f, vertColor, &status);
             MCheckStatus( status, "ERR: getting color ramp attribute" );
-            vertColors.set( vertColor, i );
-            vertIds.set( i, i );
+            for ( int i = 0; i < numVerts; ++i)
+            {
+                vertColors.set( vertColor, i );
+                vertIds.set( i, i );
+            }
         }
         MCheckStatus( meshFn.setVertexColors( vertColors, vertIds ), "ERR: setting vertex colors" );
     }
@@ -162,7 +164,6 @@ MDoubleArray tensionNode::getEdgeLen( const MDataHandle& meshHandle )
             edgeIter.getLength( length );
             lengthSum += length;
         }
-        lengthSum = lengthSum / connectedEdges.length();
         edgeLenArray.append( lengthSum );
         vertIter.next();
     }
@@ -172,21 +173,13 @@ MDoubleArray tensionNode::getEdgeLen( const MDataHandle& meshHandle )
 MStatus tensionNode::setDependentsDirty( const MPlug &dirtyPlug, MPlugArray &affectedPlugs )
 // set isOrigDirty and/or isDeformedDirty
 {
-    if ( dirtyPlug.partialName() == deformedAttrName )
+    if (dirtyPlug == aDeformedShape )
     {
         isDeformedDirty = true;
     }
-    else
-    {
-        isDeformedDirty = false;
-    }
-    if ( dirtyPlug.partialName() == origAttrName )
+    if ( dirtyPlug == aOrigShape )
     {
         isOrigDirty = true;
-    }
-    else
-    {
-        isOrigDirty = false;
     }
     return MStatus::kSuccess;
 }
