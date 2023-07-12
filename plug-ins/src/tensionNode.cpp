@@ -102,15 +102,14 @@ MStatus tensionNode::compute( const MPlug& plug, MDataBlock& data )
             origEdgeLenArray = getEdgeLen( origHandle );
             isOrigDirty = false;
         }
-        if ( isDeformedDirty == true )
-        {
-            MDataHandle deformedHandle = data.inputValue( aDeformedShape, &status );
-            MCheckStatus( status, "ERR: getting deformedShape dataHandle" );
-            deformedEdgeLenArray = getEdgeLen( deformedHandle );
-            outHandle.set( deformedHandle.asMesh() );
-            isDeformedDirty = false;
-            isColorSetDirty = true;
-        }
+
+
+        MDataHandle deformedHandle = data.inputValue( aDeformedShape, &status );
+        MCheckStatus( status, "ERR: getting deformedShape dataHandle" );
+        deformedEdgeLenArray = getEdgeLen( deformedHandle );
+        outHandle.set( deformedHandle.asMesh() );
+        isDeformedDirty = false;
+        isColorSetDirty = true;
 
         MObject outMesh = outHandle.asMesh();
         MFnMesh meshFn( outMesh, &status );
